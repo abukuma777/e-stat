@@ -11,18 +11,22 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
-# ベースのダウンロードフォルダのパス
-downloads_dir = os.path.join(os.getcwd(), "downloads")
-
+# -------------- DLする前に一時保存するDIR作成 -------------------
 # 一時ダウンロードフォルダのパス
 tmp_dir = os.path.join(os.getcwd(), "tmp")
+# 既存のディレクトリがあれば削除
+if os.path.exists(tmp_dir):
+    shutil.rmtree(tmp_dir)
+
+# 新しいディレクトリを作成
+os.makedirs(tmp_dir)
 
 
 # Chromeオプションを設定して一時ダウンロード先を指定
-def setup_chrome_options(download_dir):
+def setup_chrome_options(tmp_dir):
     chrome_options = Options()
     prefs = {
-        "download.default_directory": download_dir,
+        "download.default_directory": tmp_dir,
         "download.prompt_for_download": False,
         "profile.default_content_setting_values.automatic_downloads": 1,
         "directory_upgrade": True,
@@ -35,10 +39,14 @@ def setup_chrome_options(download_dir):
 # Moving the files from tmp_dir to year_folder
 def move_files_to_year_folder(year, tmp_dir):
     """Move downloaded files from temporary folder to the year-specific folder."""
-    year_folder = os.path.join("downloads", year)
+    year_folder = os.path.join(".", "downloads", year, "zip")
 
-    if not os.path.exists(year_folder):
-        os.makedirs(year_folder)
+    # 既存のディレクトリがあれば削除
+    if os.path.exists(year_folder):
+        shutil.rmtree(year_folder)
+
+    # 新しいディレクトリを作成
+    os.makedirs(year_folder)
 
     # Iterate over files in tmp_dir and move them to year_folder
     for file_name in os.listdir(tmp_dir):  # tmp_dir should be a string path
@@ -61,13 +69,13 @@ def clear_tmp_folder(tmp_dir):
 
 
 # 新しいファイルが tmp フォルダにダウンロードされるまで待機する関数
-def wait_for_new_file_in_directory(download_dir, timeout=120, check_interval=0.5):
+def wait_for_new_file_in_directory(tmp_dir, timeout=120, check_interval=0.5):
     """新しいファイルがダウンロードされるまで待機"""
-    initial_files = set(os.listdir(download_dir))
+    initial_files = set(os.listdir(tmp_dir))
     start_time = time.time()
 
     while True:
-        current_files = set(os.listdir(download_dir))
+        current_files = set(os.listdir(tmp_dir))
         new_files = current_files - initial_files
 
         if any(file.endswith(".zip") for file in new_files):
@@ -105,10 +113,6 @@ def download_files_from_page(tmp_dir):
             By.XPATH,
             "//div[@class='stat-resorce_list-body']//a[contains(@class, 'stat-dl_icon') and span[contains(text(), 'CSV')]]",
         )
-        # tmp_dirを作成する．
-        if not os.path.exists(tmp_dir):
-            os.makedirs(tmp_dir)
-
         if csv_links:
             downloaded_files = []  # To track the downloaded files
 
@@ -275,8 +279,8 @@ try:
             driver.execute_script(f"window.location.href='{url}';")  # 元のページに戻る
             wait_for_page_to_load(driver)
 
-        # ./tmp削除
-        clear_tmp_folder(tmp_dir)
+    # ./tmp削除
+    clear_tmp_folder(tmp_dir)
 
 except Exception as e:
     print(f"エラーが発生しました: {e}")
